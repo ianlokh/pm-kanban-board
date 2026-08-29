@@ -1,28 +1,32 @@
-import json
 import secrets
-import sqlite3
 from typing import Callable
 
 from fastapi import HTTPException
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.auth import connect_database, initialize_database
 
 
 class Card(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str = Field(min_length=1)
     title: str = Field(min_length=1)
     details: str
 
 
 class Column(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str = Field(min_length=1)
     title: str = Field(min_length=1)
     cardIds: list[str]
 
 
 class BoardData(BaseModel):
-    columns: list[Column]
+    model_config = ConfigDict(extra="forbid")
+
+    columns: list[Column] = Field(min_length=1)
     cards: dict[str, Card]
 
     @model_validator(mode="after")
@@ -42,21 +46,29 @@ class BoardData(BaseModel):
 
 
 class ColumnRenameRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(min_length=1)
 
 
 class CardCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     column_id: str = Field(min_length=1)
     title: str = Field(min_length=1)
     details: str = ""
 
 
 class CardUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(min_length=1)
     details: str
 
 
 class CardMoveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     active_card_id: str = Field(min_length=1)
     over_id: str = Field(min_length=1)
 
@@ -126,8 +138,28 @@ def save_board(username: str, board: BoardData) -> BoardData:
 
 
 def update_board(username: str, updater: Callable[[BoardData], BoardData]) -> BoardData:
-    board = updater(get_board(username))
-    return save_board(username, board)
+    user_id = user_id_for_username(username)
+    with connect_database() as connection:
+        row = connection.execute(
+            "SELECT board_json FROM boards WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        board = (
+            INITIAL_BOARD.model_copy(deep=True)
+            if row is None
+            else BoardData.model_validate_json(row["board_json"])
+        )
+        next_board = updater(board)
+        connection.execute(
+            """
+            INSERT INTO boards (user_id, board_json, updated_at)
+            VALUES (?, ?, datetime('now'))
+            ON CONFLICT(user_id) DO UPDATE SET
+                board_json = excluded.board_json,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, next_board.model_dump_json()),
+        )
+    return next_board
 
 
 def rename_column(board: BoardData, column_id: str, title: str) -> BoardData:

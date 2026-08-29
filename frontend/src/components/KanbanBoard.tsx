@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -8,6 +8,8 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  pointerWithin,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -18,14 +20,21 @@ import { ApiError, createCard, deleteCard, moveCard, renameColumn, updateCard } 
 
 type KanbanBoardProps = {
   initialBoard?: BoardData;
+  onBoardChange?: (board: BoardData) => void;
   onSessionExpired?: () => void;
 };
 
-export const KanbanBoard = ({ initialBoard, onSessionExpired }: KanbanBoardProps) => {
+const collisionDetectionStrategy: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
+};
+
+export const KanbanBoard = ({ initialBoard, onBoardChange, onSessionExpired }: KanbanBoardProps) => {
   const [board, setBoard] = useState<BoardData>(() => initialBoard ?? initialData);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mutationQueue = useRef(Promise.resolve());
 
   useEffect(() => {
     if (initialBoard) {
@@ -45,20 +54,28 @@ export const KanbanBoard = ({ initialBoard, onSessionExpired }: KanbanBoardProps
     previous: BoardData,
     request: () => Promise<BoardData>
   ) => {
-    setError(null);
-    setIsSaving(true);
-    try {
-      setBoard(await request());
-    } catch (requestError) {
-      if (requestError instanceof ApiError && requestError.status === 401) {
-        onSessionExpired?.();
-        return;
-      }
-      setBoard(previous);
-      setError(requestError instanceof Error ? requestError.message : "Unable to save board changes.");
-    } finally {
-      setIsSaving(false);
+    if (!initialBoard) {
+      return;
     }
+    const save = async () => {
+      setError(null);
+      setIsSaving(true);
+      try {
+        const savedBoard = await request();
+        setBoard(savedBoard);
+        onBoardChange?.(savedBoard);
+      } catch (requestError) {
+        if (requestError instanceof ApiError && requestError.status === 401) {
+          onSessionExpired?.();
+          return;
+        }
+        setBoard(previous);
+        setError(requestError instanceof Error ? requestError.message : "Unable to save board changes.");
+      } finally {
+        setIsSaving(false);
+      }
+    };
+    mutationQueue.current = mutationQueue.current.then(save, save);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -185,7 +202,7 @@ export const KanbanBoard = ({ initialBoard, onSessionExpired }: KanbanBoardProps
 
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={collisionDetectionStrategy}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >

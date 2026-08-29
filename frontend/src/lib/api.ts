@@ -1,5 +1,18 @@
 import type { BoardData } from "@/lib/kanban";
 
+export type ChatMessage = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  board_updated: boolean;
+  created_at: string;
+};
+
+export type ChatResponse = {
+  message: ChatMessage;
+  board: BoardData;
+};
+
 export class ApiError extends Error {
   status: number;
 
@@ -60,4 +73,12 @@ export const moveCard = (activeCardId: string, overId: string) =>
   request<BoardData>("/api/board/move", {
     method: "POST",
     body: JSON.stringify({ active_card_id: activeCardId, over_id: overId }),
+  });
+
+export const getChatHistory = () => request<ChatMessage[]>("/api/chat");
+
+export const sendChatMessage = (message: string) =>
+  request<ChatResponse>("/api/chat", {
+    method: "POST",
+    body: JSON.stringify({ message }),
   });

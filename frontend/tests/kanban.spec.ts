@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { initialData } from "../src/lib/kanban";
 
 const signIn = async (page: Page) => {
   await page.goto("/");
@@ -6,6 +7,9 @@ const signIn = async (page: Page) => {
   await page.getByLabel("Username").fill("user");
   await page.getByLabel("Password").fill("password");
   await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Kanban Studio" })).toBeVisible();
+  await page.request.put("http://127.0.0.1:8000/api/board", { data: initialData });
+  await page.reload();
   await expect(page.getByRole("heading", { name: "Kanban Studio" })).toBeVisible();
 };
 
@@ -60,7 +64,8 @@ test("moves a card into an empty column", async ({ page }) => {
 
   const card = page.getByTestId("card-card-1");
   const cardBox = await card.boundingBox();
-  const targetBox = await targetColumn.boundingBox();
+  const dropTarget = targetColumn.getByText("Drop a card here");
+  const targetBox = await dropTarget.boundingBox();
   if (!cardBox || !targetBox) {
     throw new Error("Unable to resolve drag coordinates.");
   }

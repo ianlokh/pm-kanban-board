@@ -14,4 +14,4 @@ The `version` field in the JSON schema document identifies the persisted contrac
 
 ## Approval gate
 
-This document and [database-schema.json](database-schema.json) are proposed for Part 5. Board and conversation tables should not be implemented until the user approves this model.
+The schema was approved when implementation was continued. Board and conversation tables are now initialized automatically by the backend.

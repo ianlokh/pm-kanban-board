@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -27,10 +27,23 @@ from app.board import (
     save_board,
     update_board,
 )
+from app.assistant import (
+    AssistantProviderError,
+    AssistantRequest,
+    AssistantResult,
+    ChatMessage,
+    OpenRouterClient,
+    assistant_messages,
+    conversation_messages,
+    get_board as get_assistant_board,
+    parse_assistant_result,
+    save_chat_turn,
+)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 app = FastAPI(title="Project Management MVP")
+openrouter_client = OpenRouterClient()
 
 
 class LoginRequest(BaseModel):
@@ -120,6 +133,27 @@ def move_board_card(
     user: dict[str, str] = Depends(current_user),
 ) -> BoardData:
     return update_board(user["username"], lambda board: move_card(board, payload))
+
+
+@app.get("/api/chat", response_model=list[ChatMessage])
+def chat_history(user: dict[str, str] = Depends(current_user)) -> list[ChatMessage]:
+    return conversation_messages(user["username"])
+
+
+@app.post("/api/chat", response_model=dict[str, object])
+def chat(
+    payload: AssistantRequest,
+    user: dict[str, str] = Depends(current_user),
+) -> dict[str, object]:
+    history = conversation_messages(user["username"])
+    board = get_assistant_board(user["username"])
+    try:
+        content = openrouter_client.complete(assistant_messages(board, history, payload.message))
+        result = parse_assistant_result(content)
+        messages = save_chat_turn(user["username"], payload.message, result)
+    except AssistantProviderError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return {"message": messages[-1], "board": result.board or board}
 
 
 @app.get("/", include_in_schema=False)

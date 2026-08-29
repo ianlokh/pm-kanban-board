@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { KanbanBoard } from "@/components/KanbanBoard";
+import { AssistantSidebar } from "@/components/AssistantSidebar";
 import { LoginForm } from "@/components/LoginForm";
 import { ApiError, getBoard } from "@/lib/api";
 import type { BoardData } from "@/lib/kanban";
@@ -93,7 +94,10 @@ export default function Home() {
           Log out
         </button>
       </div>
-      <KanbanBoard initialBoard={board} onSessionExpired={() => { setBoard(null); setAuthState("signed-out"); }} />
+      <div className="lg:pr-[380px]">
+        <KanbanBoard initialBoard={board} onBoardChange={setBoard} onSessionExpired={() => { setBoard(null); setAuthState("signed-out"); }} />
+      </div>
+      <AssistantSidebar onBoardUpdate={setBoard} onSessionExpired={() => { setBoard(null); setAuthState("signed-out"); }} />
     </>
   );
 }

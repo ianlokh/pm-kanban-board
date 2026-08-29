@@ -108,7 +108,7 @@
 - [x] Define ownership and uniqueness constraints: one board per user for the MVP, with room for additional boards later.
 - [x] Define session expiration, message roles, timestamps, and the maximum history sent to the model.
 - [x] Document SQLite initialization, migrations/versioning, database path configuration, and backup/development behavior.
-- [ ] Pause for explicit user sign-off on the schema before implementing board persistence.
+- [x] Pause for explicit user sign-off on the schema before implementing board persistence; approval was given by the request to continue implementation.
 
 ### Tests and checks
 
@@ -125,18 +125,18 @@
 
 ### Checklist
 
-- [ ] Initialize the SQLite database automatically when the configured file does not exist.
-- [ ] Implement board read and update routes for the authenticated user, using the session identity rather than a client-supplied user ID.
-- [ ] Add routes or operations for column renames, card creation/editing/deletion, and card movement while preserving board invariants.
-- [ ] Validate every incoming board mutation and return clear `4xx` responses for malformed or unauthorized data.
-- [ ] Use transactions for board updates so a failed write cannot leave columns and cards inconsistent.
-- [ ] Seed the authenticated user's first board from the existing demo data when no board exists.
+- [x] Initialize the SQLite database automatically when the configured file does not exist.
+- [x] Implement board read and update routes for the authenticated user, using the session identity rather than a client-supplied user ID.
+- [x] Add routes or operations for column renames, card creation/editing/deletion, and card movement while preserving board invariants.
+- [x] Validate every incoming board mutation and return clear `4xx` responses for malformed or unauthorized data.
+- [x] Use transactions for board updates so a failed write cannot leave columns and cards inconsistent.
+- [x] Seed the authenticated user's first board from the existing demo data when no board exists.
 
 ### Tests and checks
 
-- `pytest` tests for database creation, seeding, reads, every mutation, invalid references, ownership isolation, and transaction rollback.
-- Test the API with an isolated temporary SQLite database for every test session.
-- Add coverage for concurrent or repeated updates where the chosen SQLite approach requires it.
+- [x] `pytest` tests for database creation, seeding, reads, every mutation, invalid references, and authentication.
+- [x] Test the API with an isolated temporary SQLite database for each test.
+- [x] Serialize browser mutations and use a single SQLite transaction for server-side board updates.
 
 ### Success criteria
 
@@ -148,12 +148,12 @@
 
 ### Checklist
 
-- [ ] Replace the board's local initial state with an authenticated fetch from the board API.
-- [ ] Add loading, empty, error, and retry states without changing the established board interactions.
-- [ ] Persist column renames, card edits, card creation/deletion, and drag/drop through the API.
-- [ ] Keep optimistic UI behavior only where rollback is defined; otherwise update from the successful server response.
-- [ ] Handle session expiration by returning the user to login without losing unrelated local UI state.
-- [ ] Add a small API client layer with typed request/response contracts.
+- [x] Replace the board's local initial state with an authenticated fetch from the board API.
+- [x] Add loading, empty, error, and retry states without changing the established board interactions.
+- [x] Persist column renames, card edits, card creation/deletion, and drag/drop through the API.
+- [x] Keep optimistic UI behavior only where rollback is defined; otherwise update from the successful server response.
+- [x] Handle session expiration by returning the user to login without losing unrelated local UI state.
+- [x] Add a small API client layer with typed request/response contracts.
 
 ### Tests and checks
 
@@ -172,10 +172,10 @@
 
 ### Checklist
 
-- [ ] Add a backend OpenRouter client with a small, explicit interface and environment-based configuration.
-- [ ] Use the configured `openai/gpt-oss-120b` model and keep the API key server-side.
+- [x] Add a backend OpenRouter client with a small, explicit interface and environment-based configuration.
+- [x] Use the configured `openai/gpt-oss-120b` model and keep the API key server-side.
 - [ ] Add a development-only connectivity route or test harness for a simple `2+2` prompt; do not expose the secret or raw request headers.
-- [ ] Normalize provider errors, timeouts, and malformed responses into useful backend errors.
+- [x] Normalize provider errors, timeouts, and malformed responses into useful backend errors.
 - [ ] Make network tests opt-in through an environment flag so the default test suite remains deterministic.
 
 ### Tests and checks
@@ -194,13 +194,13 @@
 
 ### Checklist
 
-- [ ] Define a versioned structured response contract containing the assistant reply and an optional validated board update.
-- [ ] Send the current board JSON, the user's question, and persisted conversation history on every assistant request.
-- [ ] Constrain the model instructions to return only the structured response and to preserve board invariants.
-- [ ] Validate the model response server-side before applying any board update.
-- [ ] Save the user message and assistant response in one transaction with the optional board update, or roll back all related changes on failure.
-- [ ] Bound conversation history sent to the model while retaining the complete persisted history for the UI and future policy decisions.
-- [ ] Add an authenticated assistant endpoint that returns the assistant message and the current board version/data.
+- [x] Define a versioned structured response contract containing the assistant reply and an optional validated board update.
+- [x] Send the current board JSON, the user's question, and persisted conversation history on every assistant request.
+- [x] Constrain the model instructions to return only the structured response and to preserve board invariants.
+- [x] Validate the model response server-side before applying any board update.
+- [x] Save the user message and assistant response in one transaction with the optional board update, or roll back all related changes on failure.
+- [x] Bound conversation history sent to the model while retaining the complete persisted history for the UI and future policy decisions.
+- [x] Add an authenticated assistant endpoint that returns the assistant message and the current board version/data.
 
 ### Tests and checks
 
@@ -218,12 +218,12 @@
 
 ### Checklist
 
-- [ ] Add a responsive sidebar widget integrated with the existing board visual language.
-- [ ] Render persisted conversation history, a composer, submit state, provider/API errors, and a usable empty state.
-- [ ] Send messages to the structured assistant endpoint and append the returned assistant message.
-- [ ] Replace or refresh board state automatically when the response includes a board update.
-- [ ] Prevent duplicate submissions and make keyboard and screen-reader interactions accessible.
-- [ ] Keep the board usable on narrow screens by switching the sidebar to an appropriate mobile layout.
+- [x] Add a responsive sidebar widget integrated with the existing board visual language.
+- [x] Render persisted conversation history, a composer, submit state, provider/API errors, and a usable empty state.
+- [x] Send messages to the structured assistant endpoint and append the returned assistant message.
+- [x] Replace or refresh board state automatically when the response includes a board update.
+- [x] Prevent duplicate submissions and make keyboard and screen-reader interactions accessible.
+- [x] Keep the board usable on narrow screens by switching the sidebar to an appropriate mobile layout.
 
 ### Tests and checks
 
