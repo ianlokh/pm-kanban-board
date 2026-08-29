@@ -1,0 +1,9 @@
+.git
+.serena
+.env
+backend/.venv
+frontend/node_modules
+frontend/.next
+frontend/test-results
+__pycache__/
+*.py[cod]

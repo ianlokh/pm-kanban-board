@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - app-data:/app/backend/data
+    ports:
+      - "8000:8000"
+
+volumes:
+  app-data:

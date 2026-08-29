@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -11,6 +12,7 @@ type KanbanColumnProps = {
   onRename: (columnId: string, title: string) => void;
   onAddCard: (columnId: string, title: string, details: string) => void;
   onDeleteCard: (columnId: string, cardId: string) => void;
+  onEditCard: (cardId: string, title: string, details: string) => void;
 };
 
 export const KanbanColumn = ({
@@ -19,12 +21,15 @@ export const KanbanColumn = ({
   onRename,
   onAddCard,
   onDeleteCard,
+  onEditCard,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const [title, setTitle] = useState(column.title);
+
+  useEffect(() => setTitle(column.title), [column.title]);
 
   return (
     <section
-      ref={setNodeRef}
       className={clsx(
         "flex min-h-[520px] flex-col rounded-3xl border border-[var(--stroke)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow)] transition",
         isOver && "ring-2 ring-[var(--accent-yellow)]"
@@ -40,20 +45,27 @@ export const KanbanColumn = ({
             </span>
           </div>
           <input
-            value={column.title}
-            onChange={(event) => onRename(column.id, event.target.value)}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            onBlur={() => {
+              const nextTitle = title.trim();
+              if (nextTitle && nextTitle !== column.title) {
+                onRename(column.id, nextTitle);
+              }
+            }}
             className="mt-3 w-full bg-transparent font-display text-lg font-semibold text-[var(--navy-dark)] outline-none"
             aria-label="Column title"
           />
         </div>
       </div>
-      <div className="mt-4 flex flex-1 flex-col gap-3">
+      <div ref={setNodeRef} className="mt-4 flex min-h-0 flex-1 flex-col gap-3">
         <SortableContext items={column.cardIds} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
             <KanbanCard
               key={card.id}
               card={card}
               onDelete={(cardId) => onDeleteCard(column.id, cardId)}
+              onEdit={onEditCard}
             />
           ))}
         </SortableContext>

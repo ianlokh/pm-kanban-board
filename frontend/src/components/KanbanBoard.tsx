@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -13,11 +13,25 @@ import {
 } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
-import { createId, initialData, moveCard, type BoardData } from "@/lib/kanban";
+import { createId, initialData, moveCard as moveLocalCard, type BoardData } from "@/lib/kanban";
+import { ApiError, createCard, deleteCard, moveCard, renameColumn, updateCard } from "@/lib/api";
 
-export const KanbanBoard = () => {
-  const [board, setBoard] = useState<BoardData>(() => initialData);
+type KanbanBoardProps = {
+  initialBoard?: BoardData;
+  onSessionExpired?: () => void;
+};
+
+export const KanbanBoard = ({ initialBoard, onSessionExpired }: KanbanBoardProps) => {
+  const [board, setBoard] = useState<BoardData>(() => initialBoard ?? initialData);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialBoard) {
+      setBoard(initialBoard);
+    }
+  }, [initialBoard]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -26,6 +40,26 @@ export const KanbanBoard = () => {
   );
 
   const cardsById = useMemo(() => board.cards, [board.cards]);
+
+  const persist = async (
+    previous: BoardData,
+    request: () => Promise<BoardData>
+  ) => {
+    setError(null);
+    setIsSaving(true);
+    try {
+      setBoard(await request());
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        onSessionExpired?.();
+        return;
+      }
+      setBoard(previous);
+      setError(requestError instanceof Error ? requestError.message : "Unable to save board changes.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveCardId(event.active.id as string);
@@ -39,23 +73,28 @@ export const KanbanBoard = () => {
       return;
     }
 
+    const previous = board;
     setBoard((prev) => ({
       ...prev,
-      columns: moveCard(prev.columns, active.id as string, over.id as string),
+      columns: moveLocalCard(prev.columns, active.id as string, over.id as string),
     }));
+    void persist(previous, () => moveCard(active.id as string, over.id as string));
   };
 
   const handleRenameColumn = (columnId: string, title: string) => {
+    const previous = board;
     setBoard((prev) => ({
       ...prev,
       columns: prev.columns.map((column) =>
         column.id === columnId ? { ...column, title } : column
       ),
     }));
+    void persist(previous, () => renameColumn(columnId, title));
   };
 
   const handleAddCard = (columnId: string, title: string, details: string) => {
     const id = createId("card");
+    const previous = board;
     setBoard((prev) => ({
       ...prev,
       cards: {
@@ -68,25 +107,35 @@ export const KanbanBoard = () => {
           : column
       ),
     }));
+    void persist(previous, () => createCard(columnId, title, details));
   };
 
   const handleDeleteCard = (columnId: string, cardId: string) => {
-    setBoard((prev) => {
-      return {
+    const previous = board;
+    setBoard((prev) => ({
         ...prev,
         cards: Object.fromEntries(
           Object.entries(prev.cards).filter(([id]) => id !== cardId)
         ),
         columns: prev.columns.map((column) =>
           column.id === columnId
-            ? {
-                ...column,
-                cardIds: column.cardIds.filter((id) => id !== cardId),
-              }
+            ? { ...column, cardIds: column.cardIds.filter((id) => id !== cardId) }
             : column
         ),
-      };
-    });
+      }));
+    void persist(previous, () => deleteCard(cardId));
+  };
+
+  const handleEditCard = (cardId: string, title: string, details: string) => {
+    const previous = board;
+    setBoard((prev) => ({
+        ...prev,
+        cards: {
+          ...prev.cards,
+          [cardId]: { ...prev.cards[cardId], title, details },
+        },
+      }));
+    void persist(previous, () => updateCard(cardId, title, details));
   };
 
   const activeCard = activeCardId ? cardsById[activeCardId] : null;
@@ -98,6 +147,7 @@ export const KanbanBoard = () => {
 
       <main className="relative mx-auto flex min-h-screen max-w-[1500px] flex-col gap-10 px-6 pb-16 pt-12">
         <header className="flex flex-col gap-6 rounded-[32px] border border-[var(--stroke)] bg-white/80 p-8 shadow-[var(--shadow)] backdrop-blur">
+          {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{error}</p> : null}
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--gray-text)]">
@@ -148,6 +198,7 @@ export const KanbanBoard = () => {
                 onRename={handleRenameColumn}
                 onAddCard={handleAddCard}
                 onDeleteCard={handleDeleteCard}
+                onEditCard={handleEditCard}
               />
             ))}
           </section>
@@ -159,6 +210,9 @@ export const KanbanBoard = () => {
             ) : null}
           </DragOverlay>
         </DndContext>
+        <p className="text-right text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]" aria-live="polite">
+          {isSaving ? "Saving changes..." : "All changes saved"}
+        </p>
       </main>
     </div>
   );

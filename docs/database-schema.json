@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "database": "sqlite",
+  "tables": {
+    "users": {
+      "purpose": "Application identities and MVP login credentials",
+      "columns": {
+        "id": { "type": "INTEGER", "primary_key": true },
+        "username": { "type": "TEXT", "required": true, "unique": true },
+        "password_hash": { "type": "TEXT", "required": true }
+      }
+    },
+    "sessions": {
+      "purpose": "Server-side browser sessions",
+      "columns": {
+        "token": { "type": "TEXT", "primary_key": true },
+        "user_id": { "type": "INTEGER", "required": true, "references": "users.id" },
+        "expires_at": { "type": "TEXT", "required": true, "format": "RFC 3339 timestamp" }
+      }
+    },
+    "boards": {
+      "purpose": "One Kanban board per user in the MVP",
+      "columns": {
+        "id": { "type": "INTEGER", "primary_key": true },
+        "user_id": { "type": "INTEGER", "required": true, "unique": true, "references": "users.id" },
+        "board_json": { "type": "TEXT", "required": true, "format": "JSON matching board_schema" },
+        "updated_at": { "type": "TEXT", "required": true, "format": "RFC 3339 timestamp" }
+      }
+    },
+    "conversations": {
+      "purpose": "A persisted chat thread owned by a user",
+      "columns": {
+        "id": { "type": "INTEGER", "primary_key": true },
+        "user_id": { "type": "INTEGER", "required": true, "references": "users.id" },
+        "created_at": { "type": "TEXT", "required": true, "format": "RFC 3339 timestamp" },
+        "updated_at": { "type": "TEXT", "required": true, "format": "RFC 3339 timestamp" }
+      }
+    },
+    "messages": {
+      "purpose": "User and assistant messages in a conversation",
+      "columns": {
+        "id": { "type": "INTEGER", "primary_key": true },
+        "conversation_id": { "type": "INTEGER", "required": true, "references": "conversations.id" },
+        "role": { "type": "TEXT", "required": true, "allowed": ["user", "assistant"] },
+        "content": { "type": "TEXT", "required": true },
+        "board_updated": { "type": "INTEGER", "required": true, "allowed": [0, 1] },
+        "created_at": { "type": "TEXT", "required": true, "format": "RFC 3339 timestamp" }
+      }
+    }
+  },
+  "board_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["columns", "cards"],
+    "additionalProperties": false,
+    "properties": {
+      "columns": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["id", "title", "cardIds"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "title": { "type": "string", "minLength": 1 },
+            "cardIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          }
+        }
+      },
+      "cards": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "required": ["id", "title", "details"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "title": { "type": "string", "minLength": 1 },
+            "details": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "semantic_constraints": [
+    "Every column id is unique.",
+    "Every card map key equals its card id.",
+    "Every card id appears in exactly one column cardIds array.",
+    "Every cardIds value references an existing card.",
+    "A user has at most one board in version 1.",
+    "A conversation and all its messages belong to the same user through the conversation owner."
+  ]
+}
