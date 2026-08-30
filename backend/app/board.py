@@ -140,6 +140,7 @@ def save_board(username: str, board: BoardData) -> BoardData:
 def update_board(username: str, updater: Callable[[BoardData], BoardData]) -> BoardData:
     user_id = user_id_for_username(username)
     with connect_database() as connection:
+        connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
             "SELECT board_json FROM boards WHERE user_id = ?", (user_id,)
         ).fetchone()

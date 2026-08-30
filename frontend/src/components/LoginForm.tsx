@@ -1,10 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-
-type User = {
-  username: string;
-};
+import { login, type User } from "@/lib/api";
 
 type LoginFormProps = {
   onLogin: (user: User) => void;
@@ -22,19 +19,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        const body = (await response.json()) as { detail?: string };
-        throw new Error(body.detail ?? "Unable to sign in.");
-      }
-
-      onLogin((await response.json()) as User);
+      onLogin(await login(username, password));
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Unable to sign in.");
     } finally {

@@ -39,6 +39,10 @@ class AssistantProviderError(Exception):
     pass
 
 
+class BoardConflictError(Exception):
+    pass
+
+
 @dataclass
 class OpenRouterClient:
     api_key: str | None = None
@@ -115,7 +119,9 @@ def conversation_messages(username: str) -> list[ChatMessage]:
     ]
 
 
-def save_chat_turn(username: str, message: str, result: AssistantResult) -> list[ChatMessage]:
+def save_chat_turn(
+    username: str, message: str, result: AssistantResult, board_before_reply: BoardData
+) -> list[ChatMessage]:
     user_id = user_id_for_username(username)
     with connect_database() as connection:
         now = "datetime('now')"
@@ -136,16 +142,17 @@ def save_chat_turn(username: str, message: str, result: AssistantResult) -> list
             (conversation_id, message),
         )
         if result.board is not None:
-            connection.execute(
+            updated = connection.execute(
                 """
-                INSERT INTO boards (user_id, board_json, updated_at)
-                VALUES (?, ?, datetime('now'))
-                ON CONFLICT(user_id) DO UPDATE SET
-                    board_json = excluded.board_json,
-                    updated_at = excluded.updated_at
+                UPDATE boards SET board_json = ?, updated_at = datetime('now')
+                WHERE user_id = ? AND board_json = ?
                 """,
-                (user_id, result.board.model_dump_json()),
+                (result.board.model_dump_json(), user_id, board_before_reply.model_dump_json()),
             )
+            if updated.rowcount == 0:
+                raise BoardConflictError(
+                    "The board changed while the assistant was replying. Please try again."
+                )
         connection.execute(
             f"INSERT INTO messages (conversation_id, role, content, board_updated, created_at) VALUES (?, 'assistant', ?, ?, {now})",
             (conversation_id, result.reply, int(result.board is not None)),

@@ -31,6 +31,7 @@ from app.assistant import (
     AssistantProviderError,
     AssistantRequest,
     AssistantResult,
+    BoardConflictError,
     ChatMessage,
     OpenRouterClient,
     assistant_messages,
@@ -150,9 +151,11 @@ def chat(
     try:
         content = openrouter_client.complete(assistant_messages(board, history, payload.message))
         result = parse_assistant_result(content)
-        messages = save_chat_turn(user["username"], payload.message, result)
+        messages = save_chat_turn(user["username"], payload.message, result, board)
     except AssistantProviderError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
+    except BoardConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     return {"message": messages[-1], "board": result.board or board}
 
 

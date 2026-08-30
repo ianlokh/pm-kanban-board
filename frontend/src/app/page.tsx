@@ -1,15 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { AssistantSidebar } from "@/components/AssistantSidebar";
 import { LoginForm } from "@/components/LoginForm";
-import { ApiError, getBoard } from "@/lib/api";
+import { ApiError, getBoard, logout as logoutRequest, me, type User } from "@/lib/api";
 import type { BoardData } from "@/lib/kanban";
-
-type User = {
-  username: string;
-};
 
 type AuthState = "loading" | "signed-out" | "signed-in" | "error";
 
@@ -35,32 +31,28 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((response) => {
-        if (response.status === 401) {
-          setAuthState("signed-out");
-          return null;
-        }
-        if (!response.ok) {
-          throw new Error("Unable to check authentication.");
-        }
-        return response.json() as Promise<User>;
-      })
+    me()
       .then((authenticatedUser) => {
-        if (authenticatedUser) {
-          setUser(authenticatedUser);
-          setAuthState("signed-in");
-          void loadBoard();
-        }
+        setUser(authenticatedUser);
+        setAuthState("signed-in");
+        void loadBoard();
       })
-      .catch(() => setAuthState("error"));
+      .catch((meError) => {
+        if (meError instanceof ApiError && meError.status === 401) {
+          setAuthState("signed-out");
+          return;
+        }
+        setAuthState("error");
+      });
+  }, []);
+
+  const handleSessionExpired = useCallback(() => {
+    setBoard(null);
+    setAuthState("signed-out");
   }, []);
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
+    await logoutRequest();
     setUser(null);
     setBoard(null);
     setAuthState("signed-out");
@@ -95,9 +87,9 @@ export default function Home() {
         </button>
       </div>
       <div className="lg:pr-[380px]">
-        <KanbanBoard initialBoard={board} onBoardChange={setBoard} onSessionExpired={() => { setBoard(null); setAuthState("signed-out"); }} />
+        <KanbanBoard initialBoard={board} onBoardChange={setBoard} onSessionExpired={handleSessionExpired} />
       </div>
-      <AssistantSidebar onBoardUpdate={setBoard} onSessionExpired={() => { setBoard(null); setAuthState("signed-out"); }} />
+      <AssistantSidebar onBoardUpdate={setBoard} onSessionExpired={handleSessionExpired} />
     </>
   );
 }

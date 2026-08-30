@@ -69,3 +69,25 @@ def test_chat_requires_authentication(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "app.db"))
 
     assert TestClient(app).get("/api/chat").status_code == 401
+
+
+def test_chat_rejects_stale_board_instead_of_clobbering_concurrent_edit(tmp_path, monkeypatch) -> None:
+    client = signed_in_client(tmp_path, monkeypatch)
+    stale_board = client.get("/api/board").json()
+    stale_board["columns"][0]["title"] = "Renamed by assistant"
+
+    def complete(messages):
+        # Simulate another request mutating the board while this reply was "in flight".
+        concurrent_edit = client.patch("/api/board/columns/col-discovery", json={"title": "Edited concurrently"})
+        assert concurrent_edit.status_code == 200
+        return json.dumps({"reply": "Renamed it.", "board": stale_board})
+
+    monkeypatch.setattr("app.main.openrouter_client.complete", complete)
+
+    response = client.post("/api/chat", json={"message": "Rename backlog"})
+
+    assert response.status_code == 409
+    board = client.get("/api/board").json()
+    assert board["columns"][1]["title"] == "Edited concurrently"
+    assert board["columns"][0]["title"] != "Renamed by assistant"
+    assert client.get("/api/chat").json() == []

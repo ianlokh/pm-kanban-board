@@ -44,6 +44,20 @@ const request = async <T>(url: string, options?: RequestInit): Promise<T> => {
   return (await response.json()) as T;
 };
 
+export type User = {
+  username: string;
+};
+
+export const login = (username: string, password: string) =>
+  request<User>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+
+export const logout = () => request<{ status: string }>("/api/auth/logout", { method: "POST" });
+
+export const me = () => request<User>("/api/auth/me");
+
 export const getBoard = () => request<BoardData>("/api/board");
 
 export const renameColumn = (columnId: string, title: string) =>
